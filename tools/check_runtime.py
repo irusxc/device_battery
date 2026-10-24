@@ -4,7 +4,7 @@ import subprocess, ctypes, time, json
 from ctypes import wintypes
 
 ROOT=Path(__file__).resolve().parents[1]
-exe=ROOT/'dist'/'PeripheralPower.exe'
+exe=ROOT/'dist'/'v0.2.0'/'PeripheralPower.exe'
 user32=ctypes.WinDLL('user32',use_last_error=True)
 kernel32=ctypes.WinDLL('kernel32',use_last_error=True)
 psapi=ctypes.WinDLL('psapi',use_last_error=True)
@@ -34,13 +34,13 @@ def windows(pid):
     user32.EnumWindows(callback,0)
     return result
 
-process=subprocess.Popen([str(exe),'--background'],cwd=ROOT,creationflags=subprocess.CREATE_NO_WINDOW)
+process=subprocess.Popen([str(exe),'--background','--runtime-test-instance'],cwd=ROOT,creationflags=subprocess.CREATE_NO_WINDOW)
 try:
     time.sleep(2)
     assert process.poll() is None, 'Background app exited unexpectedly'
     initial=windows(process.pid)
     assert initial and not any(v for _,v in initial), 'Background start should keep panel hidden'
-    second=subprocess.run([str(exe)],cwd=ROOT,timeout=8)
+    second=subprocess.run([str(exe),'--runtime-test-instance'],cwd=ROOT,timeout=8)
     assert second.returncode==0, 'Second launch failed'
     time.sleep(1)
     activated=windows(process.pid)

@@ -21,10 +21,13 @@ namespace PeripheralPower
             }
             if (args.Length >= 2 && args[0] == "--self-test") return SelfTests.Run(args[1]);
             if (args.Length >= 2 && args[0] == "--ui-test") return UiTests.Run(args[1]);
+            if (args.Length >= 2 && args[0] == "--monitor-test") return MonitorTests.Run(args[1]);
             if (args.Length >= 2 && args[0] == "--capture-demo") return Capture(args[1], null);
+            if (args.Length >= 2 && args[0] == "--capture-settings") return Capture(args[1], null, "settings");
+            if (args.Length >= 2 && args[0] == "--capture-narrow") return Capture(args[1], null, "narrow");
             if (args.Length >= 3 && args[0] == "--capture-real") return Capture(args[2], Json.Read<Snapshot>(args[1]));
             bool first;
-            string suffix = DeviceState.Identity(Environment.UserName);
+            string suffix = DeviceState.Identity(Environment.UserName) + (args.Contains("--runtime-test-instance") ? "-test-v02" : "");
             using (var mutex = new Mutex(true, "Local\\PeripheralPower-" + suffix, out first))
             using (var wake = new EventWaitHandle(false, EventResetMode.AutoReset, "Local\\PeripheralPowerWake-" + suffix)) {
                 if (!first) { wake.Set(); return 0; }
@@ -50,11 +53,13 @@ namespace PeripheralPower
                 } finally { mutex.ReleaseMutex(); }
             }
         }
-        private static int Capture(string path, Snapshot snapshot)
+        private static int Capture(string path, Snapshot snapshot, string view = null)
         {
             var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
             using (var desktop = new DesktopApp(snapshot == null, true)) {
                 if (snapshot != null) desktop.SetSnapshot(snapshot);
+                if (view == "settings") ((System.Windows.Controls.Button)desktop.Window.FindName("SettingsButton")).RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+                if (view == "narrow") { desktop.Window.Width = 640; desktop.Window.Height = 440; }
                 desktop.Window.WindowStartupLocation = WindowStartupLocation.Manual;
                 desktop.Window.Left = -20000; desktop.Window.Top = -20000;
                 desktop.Window.ShowInTaskbar = false; desktop.Window.ShowActivated = false;

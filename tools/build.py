@@ -3,9 +3,9 @@ from pathlib import Path
 import os, subprocess, shutil, struct, zlib, zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-DIST = ROOT / 'dist'
+DIST = ROOT / 'dist' / 'v0.2.0'
 BUILD = ROOT / 'build'
-DIST.mkdir(exist_ok=True)
+DIST.mkdir(parents=True,exist_ok=True)
 BUILD.mkdir(exist_ok=True)
 framework = Path(os.environ.get('WINDIR', r'C:\Windows')) / 'Microsoft.NET' / 'Framework64' / 'v4.0.30319'
 if not (framework / 'csc.exe').exists():
@@ -25,7 +25,7 @@ pixels = bytearray()
 for y in range(size):
     pixels.append(0)
     for x in range(size):
-        pixels.extend((219,234,185,255) if inside(x,y) else (37,75,60,255) if (x-15.5)**2+(y-15.5)**2 < 225 else (0,0,0,0))
+        pixels.extend((225,225,225,255) if inside(x,y) else (45,45,45,255) if (x-15.5)**2+(y-15.5)**2 < 225 else (0,0,0,0))
 def chunk(kind,data):
     return struct.pack('>I',len(data))+kind+data+struct.pack('>I',zlib.crc32(kind+data)&0xffffffff)
 png = b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',32,32,8,6,0,0,0))+chunk(b'IDAT',zlib.compress(pixels))+chunk(b'IEND',b'')
@@ -41,11 +41,17 @@ if result.returncode:
     raise SystemExit(result.returncode)
 shutil.copy2(ROOT/'src'/'App.config', DIST/'PeripheralPower.exe.config')
 shutil.copy2(ROOT/'device-catalog.json', DIST/'device-catalog.json')
-for name in ['README.md','PROTOCOLS.md','LICENSE']:
+for name in ['README.md','PROTOCOLS.md','CHANGELOG.md','LICENSE']:
     if (ROOT/name).exists(): shutil.copy2(ROOT/name,DIST/name)
 (DIST/'images').mkdir(exist_ok=True)
-with zipfile.ZipFile(DIST/'PeripheralPower-0.1.0-win-x64.zip','w',zipfile.ZIP_DEFLATED) as archive:
+(DIST/'docs').mkdir(exist_ok=True)
+for name in ['preview-demo.png','PUBLISHING.md','RELEASE-v0.2.0.md']:
+    if (ROOT/'docs'/name).exists(): shutil.copy2(ROOT/'docs'/name,DIST/'docs'/name)
+with zipfile.ZipFile(DIST/'PeripheralPower-0.2.0-win-x64.zip','w',zipfile.ZIP_DEFLATED) as archive:
     for path in sorted(DIST.iterdir()):
         if path.suffix in ['.exe','.config','.json','.md'] or path.name == 'LICENSE': archive.write(path,'PeripheralPower/'+path.name)
+    for path in sorted((DIST/'docs').iterdir()):
+        if path.is_file(): archive.write(path,'PeripheralPower/docs/'+path.name)
+    archive.writestr('PeripheralPower/images/','')
 print('Built:',DIST/'PeripheralPower.exe')
 print('Executable bytes:',(DIST/'PeripheralPower.exe').stat().st_size)

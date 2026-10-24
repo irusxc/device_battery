@@ -4,7 +4,9 @@
 
 ### 标准 HID
 
-`Native.Enumerate` 使用 SetupAPI 获取 HID 接口，读取厂商、产品名称和 HID capabilities。`DEVPKEY_Device_ContainerId` 与 VID/PID 用于合并接口；序列号不主动查询。只处理 `hid#vid_` 接口路径，USB HID 以外的设备需要额外发现器。
+`UsbInventory.Scan` 使用 SetupAPI 的 PRESENT / ALLCLASSES 枚举 Windows PnP 清单，并经 Configuration Manager 父节点关联到物理 `USB\VID_…&PID_…` 设备。复合接口（`MI_`）和 HID 子节点合并到物理 USB 父节点，USB 集线器被排除。清单获取不打开设备，也不查询 HID 报告，因此可与电量读取独立执行。设备路径只在本地使用，对外仅保留散列标识。
+
+`Native.Enumerate` 另行获取可查询的 HID 接口，使用相同物理父节点映射回清单。访问失败的设备仍保留在连接清单里，名称和连接状态不会因为 HID 句柄无法打开而消失。
 
 `StandardBatteryAdapter` 只查询报告描述符明确声明的 Generic Device Controls / Battery Strength（Usage Page `0x06`、Usage `0x20`）。先查询 Feature，后查询 Input。只接受 Logical Min=0、Max=100 且取值在 0–100 内的值。不会向未知设备发送猜测出的厂商指令，也不会把任意字节或电压直接换算成百分比。
 
@@ -24,7 +26,9 @@
 
 不写 DPI、灯效、配置、配对或固件。发送的是查询请求。与厂商软件共用设备时，访问权限或协议交互可能影响成功率；未做真实罗技硬件兼容性验证。
 
-所有硬件查询在单独的 `--probe` 子进程运行。父进程超时会终止该进程，保留已经完成的扫描结果；配置和扫描 JSON 通过临时文件替换，避免半写入文件。正常采样间隔默认 60 秒，不做忙轮询。
+电量硬件查询在独立的 `--probe` 子进程运行，25 秒超时终止；清单先发布，设备电量逐步保存。配置和扫描 JSON 通过临时文件替换，避免半写入文件。电量查询默认 60 秒，连接清单另行每 3 秒检查一次。
+
+`DeviceNotifications` 通过 `RegisterDeviceNotification` 注册所有设备接口类型，接收隐藏窗口的到达 / 移除事件。界面 250 ms 合并通知。`DeviceMonitor` 对拓扑变化使用版本编号使旧响应失效，取消旧电量子进程，合并繁忙期间的新请求，并在清单更新后补查电量。即使迟到回复声称设备存在，也不能恢复最新清单里已经没有的设备。完整接收器移除会删除所有配对子设备。
 
 ## 新增品牌适配器
 

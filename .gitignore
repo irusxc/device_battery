@@ -3,3 +3,9 @@ build/
 tools/*.reference.*
 *.user
 *.log
+*.exe
+*.pdb
+*.zip
+__pycache__/
+*.pyc
+.vs/

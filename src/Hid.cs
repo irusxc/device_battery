@@ -88,18 +88,9 @@ namespace PeripheralPower
                         Marshal.WriteInt32(detail, IntPtr.Size == 8 ? 8 : 6);
                         if (!SetupDiGetDeviceInterfaceDetail(set, ref iface, detail, size, out size, ref info)) continue;
                         string path = Marshal.PtrToStringUni(IntPtr.Add(detail, 4));
-                        // Bluetooth and system/virtual HID devices are outside this USB receiver scanner.
-                        if (path == null || path.IndexOf("hid#vid_", StringComparison.OrdinalIgnoreCase) < 0) continue;
-                        var e = new HidEndpoint { Path = path, Product = "", Manufacturer = "" };
-                        var key = new PropertyKey { Id = new Guid("8C7ED206-3F8A-4827-B3AB-AE9E1FAEFC6C"), Pid = 2 };
-                        byte[] container = new byte[16]; uint type, required;
-                        if (SetupDiGetDeviceProperty(set, ref info, ref key, out type, container, 16, out required, 0) && required == 16 && new Guid(container) != Guid.Empty)
-                            e.Group = new Guid(container).ToString();
-                        else {
-                            var instance = new StringBuilder(1024); int count;
-                            e.Group = SetupDiGetDeviceInstanceId(set, ref info, instance, 1024, out count) ? instance.ToString() : path;
-                            e.Group = System.Text.RegularExpressions.Regex.Replace(e.Group, @"&col[0-9a-f]{2}", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-                        }
+                        string physical = UsbInventory.PhysicalInstance(info.DevInst);
+                        if (path == null || physical == null) continue;
+                        var e = new HidEndpoint { Path = path, Group = physical, Product = "", Manufacturer = "" };
                         using (var handle = Open(path, false)) {
                             if (handle.IsInvalid) { errors.Add("一个 HID 接口无法访问，可能正被驱动独占。"); continue; }
                             var attrs = new Attributes { Size = Marshal.SizeOf(typeof(Attributes)) };

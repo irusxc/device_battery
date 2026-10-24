@@ -1,9 +1,9 @@
 from pathlib import Path
 import subprocess, json, time
 ROOT=Path(__file__).resolve().parents[1]
-exe=ROOT/'dist'/'PeripheralPower.exe'
+exe=ROOT/'dist'/'v0.2.0'/'PeripheralPower.exe'
 build=ROOT/'build'
-for args, timeout in [(['--self-test',str(build/'test-results.txt')],15),(['--ui-test',str(build/'ui-test-results.txt')],15),(['--probe',str(build/'hardware-scan.json')],35),(['--capture-demo',str(build/'preview-demo.png')],20),(['--capture-real',str(build/'hardware-scan.json'),str(build/'preview-real.png')],20)]:
+for args, timeout in [(['--self-test',str(build/'test-results.txt')],15),(['--monitor-test',str(build/'monitor-test-results.txt')],15),(['--ui-test',str(build/'ui-test-results.txt')],15),(['--probe',str(build/'hardware-scan.json')],35),(['--capture-demo',str(build/'preview-demo.png')],20),(['--capture-real',str(build/'hardware-scan.json'),str(build/'preview-real.png')],20),(['--capture-settings',str(build/'preview-settings.png')],20),(['--capture-narrow',str(build/'preview-narrow.png')],20)]:
     started=time.monotonic()
     try:
         result=subprocess.run([str(exe),*args],cwd=ROOT,timeout=timeout)
@@ -14,5 +14,6 @@ for args, timeout in [(['--self-test',str(build/'test-results.txt')],15),(['--ui
         raise SystemExit(1)
 print((build/'test-results.txt').read_text(),flush=True)
 print((build/'ui-test-results.txt').read_text(),flush=True)
+print((build/'monitor-test-results.txt').read_text(),flush=True)
 snapshot=json.loads((build/'hardware-scan.json').read_text(encoding='utf-8-sig'))
 print(json.dumps(snapshot,ensure_ascii=True,indent=2),flush=True)

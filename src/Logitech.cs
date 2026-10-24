@@ -83,6 +83,7 @@ namespace PeripheralPower
                         if (ping == null || ping.Length < 3 || ping[0] < 2 || ping[2] != marker) continue;
                         var d = new DeviceState {
                             Id = DeviceState.Identity(endpoint.Group + ":" + slot),
+                            PhysicalId = receiver.PhysicalId,
                             Name = isReceiver ? "Logitech 无线设备 · " + slot : receiver.Name,
                             Manufacturer = "Logitech", HardwareId = receiver.HardwareId,
                             Adapter = Name, Connection = isReceiver ? "2.4 GHz · 无线接收器" : "USB / HID",
@@ -158,20 +159,30 @@ namespace PeripheralPower
     {
         internal static Snapshot Scan(Action<Snapshot> progress)
         {
-            var snapshot = new Snapshot { ScannedUtc = DateTime.UtcNow.ToString("o") };
+            var snapshot = UsbInventory.Scan();
+            // Publish the full inventory before opening HID handles or querying slow protocols.
+            if (progress != null) progress(snapshot);
             var endpoints = Native.Enumerate(snapshot.Errors);
             var adapters = new IBatteryAdapter[] { new LogitechBatteryAdapter(), new StandardBatteryAdapter() };
-            foreach (var group in endpoints.GroupBy(e => e.Group + ":" + e.HardwareId)) {
+            foreach (var group in endpoints.GroupBy(e => e.Group)) {
                 var list = group.ToList(); var first = list.First();
                 bool mouse = list.Any(e => e.Caps.UsagePage == 1 && e.Caps.Usage == 2);
                 bool keyboard = list.Any(e => e.Caps.UsagePage == 1 && e.Caps.Usage == 6);
                 string name = list.Select(e => e.Product).FirstOrDefault(n => !String.IsNullOrWhiteSpace(n));
-                var d = new DeviceState {
-                    Id = DeviceState.Identity(group.Key), Name = name ?? "USB HID 设备", Manufacturer = first.Manufacturer,
+                string physicalId = DeviceState.Identity(group.Key);
+                var d = snapshot.Devices.FirstOrDefault(device => device.PhysicalId == physicalId) ?? new DeviceState {
+                    Id = physicalId, PhysicalId = physicalId, Name = name ?? "USB HID 设备", Manufacturer = first.Manufacturer,
                     HardwareId = first.HardwareId, Kind = mouse && !keyboard ? "mouse" : keyboard && !mouse ? "keyboard" : "receiver",
                     Detail = "已识别 USB/HID 设备。尚未找到可用电量协议；可能是有线设备，或无线接收器没有公开电量。",
                     Interfaces = list.Select(e => String.Format("Usage {0:X4}:{1:X4} · Input {2} / Output {3} / Feature {4}", e.Caps.UsagePage, e.Caps.Usage, e.Caps.InputLength, e.Caps.OutputLength, e.Caps.FeatureLength)).Distinct().ToList()
                 };
+                if (!String.IsNullOrWhiteSpace(name)) d.Name = name;
+                if (!String.IsNullOrWhiteSpace(first.Manufacturer)) d.Manufacturer = first.Manufacturer;
+                d.Status = "unsupported";
+                d.Detail = "设备已连接；未提供可读取的电量。";
+                if (mouse && !keyboard) d.Kind = "mouse";
+                else if (keyboard && !mouse) d.Kind = "keyboard";
+                foreach (var e in list) d.Interfaces.Add(String.Format("HID {0:X4}:{1:X4} · Input {2} / Output {3} / Feature {4}", e.Caps.UsagePage, e.Caps.Usage, e.Caps.InputLength, e.Caps.OutputLength, e.Caps.FeatureLength));
                 List<DeviceState> supported = null;
                 foreach (var adapter in adapters) {
                     if (!adapter.CanHandle(list)) continue;
@@ -180,9 +191,12 @@ namespace PeripheralPower
                         if (found.Count > 0) { supported = found; break; }
                     } catch (Exception ex) { snapshot.Errors.Add(first.HardwareId + " · " + adapter.Name + " · " + ex.GetType().Name); }
                 }
+                snapshot.Devices.RemoveAll(device => device.PhysicalId == physicalId);
                 snapshot.Devices.AddRange(supported ?? new List<DeviceState> { d });
                 if (progress != null) progress(snapshot);
             }
+            foreach (var device in snapshot.Devices.Where(device => device.Status == "pending")) { device.Status = "unsupported"; device.Detail = "设备已连接；未提供可读取的电量。"; }
+            snapshot.BatteryComplete = true;
             return snapshot;
         }
     }

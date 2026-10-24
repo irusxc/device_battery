@@ -11,6 +11,7 @@ namespace PeripheralPower
     public sealed class DeviceState
     {
         public string Id { get; set; }
+        public string PhysicalId { get; set; }
         public string Name { get; set; }
         public string Manufacturer { get; set; }
         public string Kind { get; set; }
@@ -24,7 +25,7 @@ namespace PeripheralPower
         public bool Charging { get; set; }
         public string UpdatedUtc { get; set; }
         public List<string> Interfaces { get; set; }
-        public DeviceState() { Interfaces = new List<string>(); Kind = "receiver"; Status = "unsupported"; Connection = "USB · 连接方式待确认"; Adapter = "未匹配"; }
+        public DeviceState() { Interfaces = new List<string>(); Kind = "receiver"; Status = "unsupported"; Connection = "USB"; Adapter = "未匹配"; }
         public static string Identity(string value)
         {
             using (var hash = SHA256.Create())
@@ -34,6 +35,8 @@ namespace PeripheralPower
     public sealed class Snapshot
     {
         public string ScannedUtc { get; set; }
+        public bool InventoryComplete { get; set; }
+        public bool BatteryComplete { get; set; }
         public List<DeviceState> Devices { get; set; }
         public List<string> Errors { get; set; }
         public Snapshot() { Devices = new List<DeviceState>(); Errors = new List<string>(); }
